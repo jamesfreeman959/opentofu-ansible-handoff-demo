@@ -1,0 +1,88 @@
+---
+- name: Configure Hello World Web Server
+  hosts: web_servers
+  become: yes
+  tasks:
+    - name: Create web content directory
+      file:
+        path: /var/www
+        state: directory
+        mode: '0755'
+
+    - name: Create Hello World HTML page
+      copy:
+        content: |
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>OpenTofu + Ansible Demo</title>
+              <style>
+                  body {
+                      font-family: Arial, sans-serif;
+                      display: flex;
+                      justify-content: center;
+                      align-items: center;
+                      height: 100vh;
+                      margin: 0;
+                      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                      color: white;
+                  }
+                  .container {
+                      text-align: center;
+                      padding: 40px;
+                      background: rgba(255, 255, 255, 0.1);
+                      border-radius: 20px;
+                      box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+                  }
+                  h1 { font-size: 3em; margin: 0; }
+                  p { font-size: 1.2em; margin-top: 20px; }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>Hello World!</h1>
+                  <p>This server was deployed with OpenTofu and configured with Ansible</p>
+                  <p>Hostname: {{ ansible_hostname }}</p>
+              </div>
+          </body>
+          </html>
+        dest: /var/www/index.html
+        mode: '0644'
+
+    - name: Install Python 3
+      yum:
+        name: python3
+        state: present
+
+    - name: Create systemd service for web server
+      copy:
+        content: |
+          [Unit]
+          Description=Simple HTTP Server
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=root
+          WorkingDirectory=/var/www
+          ExecStart=/usr/bin/python3 -m http.server 80
+          Restart=on-failure
+
+          [Install]
+          WantedBy=multi-user.target
+        dest: /etc/systemd/system/hello-web.service
+        mode: '0644'
+
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable and start web server
+      systemd:
+        name: hello-web
+        enabled: yes
+        state: started
+
+    - name: Display success message
+      debug:
+        msg: "Web server is now running! Access it at http://{{ ansible_host }}"
